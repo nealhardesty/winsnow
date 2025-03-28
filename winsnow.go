@@ -43,15 +43,23 @@ type Snowflake struct {
 
 // Game implements ebiten.Game interface
 type Game struct {
-	snowflakes   []Snowflake
-	screenWidth  int
-	screenHeight int
+	snowflakes     []Snowflake
+	screenWidth    int
+	screenHeight   int
+	wind           float64 // Current wind strength
+	windTarget     float64 // Target wind strength
+	windChangeTime float64 // Time until next wind change
 }
 
 // Initialize creates all the snowflakes
 func (g *Game) Initialize() {
 	// Get the primary monitor size
 	g.screenWidth, g.screenHeight = ebiten.ScreenSizeInFullscreen()
+
+	// Initialize wind
+	g.wind = 0
+	g.windTarget = 0
+	g.windChangeTime = 0
 
 	// Create snowflakes
 	g.snowflakes = make([]Snowflake, numSnowflakes)
@@ -72,8 +80,23 @@ func (g *Game) Initialize() {
 func (g *Game) Update() error {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
+	// Update wind
+	g.windChangeTime -= 1.0
+	if g.windChangeTime <= 0 {
+		// Set new wind target
+		g.windTarget = (r.Float64()*2 - 1.0) * 0.8 // Range: -0.8 to 0.8
+		g.windChangeTime = 60 + r.Float64()*120    // Change every 60-180 frames
+	}
+
+	// Gradually adjust wind toward target (subtle change)
+	g.wind = g.wind*0.99 + g.windTarget*0.01
+
 	// Update snowflakes
 	for i := range g.snowflakes {
+		// Apply wind effect - larger flakes affected less by wind
+		windEffect := g.wind / g.snowflakes[i].size
+		g.snowflakes[i].x += windEffect
+
 		// Apply velocity
 		g.snowflakes[i].y += g.snowflakes[i].speed
 
